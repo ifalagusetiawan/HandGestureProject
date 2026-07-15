@@ -1,28 +1,101 @@
 <!DOCTYPE html>
-<html lang="id"
-
+<html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Belajar Flask</title>
-
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Gesture Music Controller</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Membalik tampilan kamera biar kayak cermin */
+        video { transform: scaleX(-1); }
+    </style>
 </head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
 
-<body>
+    <h1 class="text-3xl font-bold mb-4">🎵 Hand Gesture Music Controller</h1>
+    
+    <div class="relative w-full max-w-md bg-black rounded-lg overflow-hidden shadow-lg border border-gray-700">
+        <video id="webcam" class="w-full h-auto object-cover" autoplay playsinline></video>
+        
+        <div id="status" class="absolute top-4 left-4 text-green-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+            Music : STOPPED
+        </div>
+    </div>
 
-<div class="container">s
+    <audio id="bgMusic" src="music.mp3" loop></audio>
 
-    <h1>🚀 Aplikasi Python Pertamaku</h1>
+    <div class="mt-6 text-center text-gray-400 max-w-sm">
+        <p class="font-semibold text-white mb-2">💡 Cara Kontrol:</p>
+        <p>✋ Buka 5 jari = <span class="text-green-400 font-bold">PLAY</span></p>
+        <p>✊ Kepal tangan (0 jari) = <span class="text-yellow-400 font-bold">PAUSE</span></p>
+    </div>
 
-    <h2>belajar lgi bro </h2>
+    <script>
+        const videoElement = document.getElementById('webcam');
+        const statusElement = document.getElementById('status');
+        const music = document.getElementById('bgMusic');
+        let musicPlaying = false;
 
-    <button onclick="halo()">
-        Klik Saya
-    </button>
+        // Fungsi logika menghitung jari terbuka
+        function checkGesture(landmarks) {
+            // Landmark ujung jari: Jempol(4), Telunjuk(8), Tengah(12), Manis(16), Kelingking(20)
+            const tipIds = [4, 8, 12, 16, 20];
+            let openFingers = 0;
 
-</div>
+            // Cek 4 Jari selain jempol (posisi ujung jari harus lebih tinggi dari sendi di bawahnya)
+            for (let i = 1; i < 5; i++) {
+                if (landmarks[tipIds[i]].y < landmarks[tipIds[i] - 2].y) {
+                    openFingers++;
+                }
+            }
+            // Cek Jempol secara horizontal
+            if (landmarks[4].x < landmarks[3].x) {
+                openFingers++;
+            }
 
-<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+            // Jalankan/Pause musik berdasarkan jumlah jari
+            if (openFingers === 5 && !musicPlaying) {
+                music.play().catch(e => console.log("Izin audio dibutuhkan"));
+                musicPlaying = true;
+                statusElement.innerText = "Music : PLAYING";
+                statusElement.className = "absolute top-4 left-4 text-green-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]";
+            } else if (openFingers === 0 && musicPlaying) {
+                music.pause();
+                musicPlaying = false;
+                statusElement.innerText = "Music : PAUSED";
+                statusElement.className = "absolute top-4 left-4 text-yellow-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]";
+            }
+        }
 
+        function onResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                checkGesture(results.multiHandLandmarks[0]);
+            }
+        }
+
+        // Konfigurasi MediaPipe Hands
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        hands.onResults(onResults);
+
+        // Menjalankan Kamera
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480
+        });
+        camera.start();
+    </script>
 </body>
 </html>
