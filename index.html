@@ -8,7 +8,12 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        video { transform: scaleX(-1); }
+        /* LOGIKA BLUR CSS (Sama persis kayak tampilan Python lu) */
+        video { 
+            transform: scaleX(-1); 
+            filter: blur(8px); /* <-- Efek buram ada di sini bro! */
+            -webkit-filter: blur(8px); /* Buat support Safari/Browser lawas */
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
@@ -37,34 +42,27 @@
         let musicPlaying = false;
 
         function checkGesture(landmarks) {
-            // ID Ujung Jari: Telunjuk(8), Tengah(12), Manis(16), Kelingking(20)
             const tipIds = [8, 12, 16, 20];
             let openFingers = 0;
 
-            // 1. Cek 4 jari tegak (koordinat Y ujung jari harus lebih kecil dari sendi ke-2 di bawahnya)
             for (let i = 0; i < tipIds.length; i++) {
                 if (landmarks[tipIds[i]].y < landmarks[tipIds[i] - 2].y) {
                     openFingers++;
                 }
             }
 
-            // 2. Cek Jempol (ID 4) menggunakan jarak absolut terhadap ID 9 (pangkal jari tengah) biar akurat mau pake tangan kiri/kanan
             const thumbTip = landmarks[4];
-            const jointNext = landmarks[3];
             const mcpMiddle = landmarks[9];
-            
-            // Logika jempol lebih sederhana: jika menjauh dari telapak tangan, dianggap buka
-            if (Math.abs(thumbTip.x - mcpMiddle.x) > Math.abs(jointNext.x - mcpMiddle.x)) {
+            if (Math.abs(thumbTip.x - mcpMiddle.x) > 0.15) { // Logika jempol disederhanakan
                 openFingers++;
             }
 
-            // 3. Efek Aksi Musik (Buka semua jari = 5, Ngepal = 0)
             if (openFingers >= 4 && !musicPlaying) {
                 music.play().then(() => {
                     musicPlaying = true;
                     statusElement.innerText = "Music : PLAYING";
                     statusElement.className = "absolute top-4 left-4 text-green-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]";
-                }).catch(e => console.log("Klik layar dulu bro biar musik dapet izin play"));
+                });
             } else if (openFingers <= 1 && musicPlaying) {
                 music.pause();
                 musicPlaying = false;
@@ -86,7 +84,7 @@
         hands.setOptions({
             maxNumHands: 1,
             modelComplexity: 1,
-            minDetectionConfidence: 0.6, // Ditingkatkan biar lebih sensitif di ruang agak gelap
+            minDetectionConfidence: 0.6,
             minTrackingConfidence: 0.6
         });
         hands.onResults(onResults);
@@ -100,7 +98,6 @@
         });
         camera.start();
 
-        // Paksa interaksi klik pertama biar browser ga nolak audio backend
         window.addEventListener('click', () => {
             if(!musicPlaying && statusElement.innerText === "Music : PLAYING") {
                 music.play();
