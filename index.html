@@ -3,55 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Blur Gesture Control</title>
+    <title>Visual Gesture Blur Only</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        video { 
+        #webcam { 
             transform: scaleX(-1); 
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
         }
-        /* Efek transisi dipercepat jadi 0.2 detik biar responsif banget */
-        .kotak-ngeblur {
-            filter: blur(15px) !important;
-            -webkit-filter: blur(15px) !important;
+        .layar-ngeblur {
+            filter: blur(25px) !important;
+            -webkit-filter: blur(25px) !important;
             transition: filter 0.2s ease-in-out;
         }
-        .kotak-bening {
-            filter: blur(0px) !important;
-            -webkit-filter: blur(0px) !important;
+        .layar-bening {
+            filter: none !important;
+            -webkit-filter: none !important;
             transition: filter 0.2s ease-in-out;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
+<body class="bg-gray-900 text-white overflow-hidden font-sans min-h-screen relative flex flex-col items-center justify-between p-8">
 
-    <h1 class="text-3xl font-bold mb-4">🎵 Hand Gesture Music Controller</h1>
-    
-    <div id="videoContainer" class="relative w-full max-w-md bg-black rounded-lg overflow-hidden shadow-lg border border-gray-700 kotak-ngeblur">
-        <video id="webcam" class="w-full h-auto object-cover" autoplay playsinline></video>
-        <div id="status" class="absolute top-4 left-4 text-yellow-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
-            Music : PAUSED
+    <video id="webcam" class="layar-bening" autoplay playsinline></video>
+
+    <div class="z-10 text-center mt-4">
+        <h1 class="text-3xl md:text-4xl font-extrabold tracking-wide drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] mb-3">
+            🎵 Hand Gesture Music Controller
+        </h1>
+        <div id="status" class="inline-block bg-black/50 backdrop-blur-md px-6 py-2 rounded-full text-green-400 font-black text-2xl tracking-wider border border-green-500/30 shadow-lg drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+            Music : ACTIVE
         </div>
     </div>
 
     <audio id="bgMusic" src="music.mp3" loop></audio>
 
-    <div class="mt-6 text-center text-gray-400 max-w-sm">
-        <p class="font-semibold text-white mb-2">💡 Cara Kontrol:</p>
-        <p>✋ Buka Tangan = <span class="text-green-400 font-bold">PLAY + Kamera BENING</span></p>
-        <p>✊ Kepal Tangan = <span class="text-yellow-400 font-bold">PAUSE + Kamera NGEBLUR</span></p>
+    <div class="z-10 bg-black/60 backdrop-blur-md px-6 py-4 rounded-2xl border border-gray-700/50 shadow-2xl max-w-sm w-full text-center mb-4">
+        <p class="font-bold text-gray-200 mb-2 tracking-wide">💡 EFFECT KONTROL</p>
+        <div class="space-y-1 text-sm md:text-base text-gray-300">
+            <p>✋ Buka Tangan / Kosong = <span class="text-green-400 font-bold">Layar BENING</span></p>
+            <p>✊ Kepal Tangan = <span class="text-yellow-400 font-bold">Layar NGEBLUR TOTAL</span></p>
+        </div>
     </div>
 
     <script>
         const videoElement = document.getElementById('webcam');
-        const videoContainer = document.getElementById('videoContainer');
         const statusElement = document.getElementById('status');
         const music = document.getElementById('bgMusic');
-        let musicPlaying = false;
+        let musicStarted = false;
 
-        function checkGesture(landmarks) {
-            // Kita cek 4 jari utama: Telunjuk(8), Tengah(12), Manis(16), Kelingking(20)
+        function updateTampilan(isBlur) {
+            if (isBlur) {
+                videoElement.className = "layar-ngeblur";
+            } else {
+                videoElement.className = "layar-bening";
+            }
+        }
+
+        function onResults(results) {
+            if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                updateTampilan(false);
+                return;
+            }
+
+            const landmarks = results.multiHandLandmarks[0];
             const tipIds = [8, 12, 16, 20];
             let openFingers = 0;
 
@@ -61,36 +83,10 @@
                 }
             }
 
-            // --- KITA BIKIN TOLERANSI AGAR LEBIH SENSITIF ---
-            
-            if (openFingers >= 3) { 
-                // Jika minimal ada 3 jari tegak -> BUKA TANGAN (BENING)
-                if (!musicPlaying) {
-                    music.play().then(() => {
-                        musicPlaying = true;
-                    }).catch(e => console.log(e));
-                }
-                statusElement.innerText = "Music : PLAYING";
-                statusElement.className = "absolute top-4 left-4 text-green-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]";
-                
-                videoContainer.className = "relative w-full max-w-md bg-black rounded-lg overflow-hidden shadow-lg border border-gray-700 kotak-bening";
-
-            } else if (openFingers <= 1) { 
-                // Jika jari rapat/mengepal (0 atau 1 jari) -> KEPAL TANGAN (NGEBLUR)
-                if (musicPlaying) {
-                    music.pause();
-                    musicPlaying = false;
-                }
-                statusElement.innerText = "Music : PAUSED";
-                statusElement.className = "absolute top-4 left-4 text-yellow-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]";
-                
-                videoContainer.className = "relative w-full max-w-md bg-black rounded-lg overflow-hidden shadow-lg border border-gray-700 kotak-ngeblur";
-            }
-        }
-
-        function onResults(results) {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                checkGesture(results.multiHandLandmarks[0]);
+            if (openFingers <= 1) {
+                updateTampilan(true);
+            } else {
+                updateTampilan(false);
             }
         }
 
@@ -101,8 +97,8 @@
         hands.setOptions({
             maxNumHands: 1,
             modelComplexity: 1,
-            minDetectionConfidence: 0.5, // Diturunkan sedikit biar makin peka di tempat redup
-            minTrackingConfidence: 0.5
+            minDetectionConfidence: 0.4,
+            minTrackingConfidence: 0.4
         });
         hands.onResults(onResults);
 
@@ -110,14 +106,16 @@
             onFrame: async () => {
                 await hands.send({ image: videoElement });
             },
-            width: 640,
-            height: 480
+            width: 1280,
+            height: 720
         });
         camera.start();
 
         window.addEventListener('click', () => {
-            if(!musicPlaying && statusElement.innerText === "Music : PLAYING") {
-                music.play();
+            if (!musicStarted) {
+                music.play().then(() => {
+                    musicStarted = true;
+                }).catch(e => console.log(e));
             }
         });
     </script>
