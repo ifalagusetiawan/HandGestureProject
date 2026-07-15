@@ -8,11 +8,12 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* LOGIKA BLUR CSS (Sama persis kayak tampilan Python lu) */
-        video { 
+        /* Trik CSS biar video dipaksa ngeblur total tanpa memengaruhi teks */
+        #webcam { 
             transform: scaleX(-1); 
-            filter: blur(8px); /* <-- Efek buram ada di sini bro! */
-            -webkit-filter: blur(8px); /* Buat support Safari/Browser lawas */
+            filter: blur(12px) !important;
+            -webkit-filter: blur(12px) !important;
+            backdrop-filter: blur(12px) !important;
         }
     </style>
 </head>
@@ -22,7 +23,8 @@
     
     <div class="relative w-full max-w-md bg-black rounded-lg overflow-hidden shadow-lg border border-gray-700">
         <video id="webcam" class="w-full h-auto object-cover" autoplay playsinline></video>
-        <div id="status" class="absolute top-4 left-4 text-yellow-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+        
+        <div id="status" class="absolute top-4 left-4 text-yellow-400 font-bold text-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,1)] z-10">
             Music : PAUSED
         </div>
     </div>
@@ -45,29 +47,32 @@
             const tipIds = [8, 12, 16, 20];
             let openFingers = 0;
 
+            // Hitung 4 jari atas
             for (let i = 0; i < tipIds.length; i++) {
                 if (landmarks[tipIds[i]].y < landmarks[tipIds[i] - 2].y) {
                     openFingers++;
                 }
             }
 
+            // Hitung jempol
             const thumbTip = landmarks[4];
             const mcpMiddle = landmarks[9];
-            if (Math.abs(thumbTip.x - mcpMiddle.x) > 0.15) { // Logika jempol disederhanakan
+            if (Math.abs(thumbTip.x - mcpMiddle.x) > 0.15) {
                 openFingers++;
             }
 
+            // Aksi Musik
             if (openFingers >= 4 && !musicPlaying) {
                 music.play().then(() => {
                     musicPlaying = true;
                     statusElement.innerText = "Music : PLAYING";
-                    statusElement.className = "absolute top-4 left-4 text-green-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]";
-                });
+                    statusElement.className = "absolute top-4 left-4 text-green-400 font-bold text-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,1)] z-10";
+                }).catch(e => console.log("Menunggu interaksi user untuk audio"));
             } else if (openFingers <= 1 && musicPlaying) {
                 music.pause();
                 musicPlaying = false;
                 statusElement.innerText = "Music : PAUSED";
-                statusElement.className = "absolute top-4 left-4 text-yellow-400 font-bold text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]";
+                statusElement.className = "absolute top-4 left-4 text-yellow-400 font-bold text-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,1)] z-10";
             }
         }
 
@@ -98,11 +103,10 @@
         });
         camera.start();
 
+        // Mengatasi auto-block audio browser
         window.addEventListener('click', () => {
-            if(!musicPlaying && statusElement.innerText === "Music : PLAYING") {
-                music.play();
+            if (musicPlaying) {
+                music.play().catch(e => console.log(e));
             }
         });
-    </script>
-</body>
-</html>
+    </script> 
